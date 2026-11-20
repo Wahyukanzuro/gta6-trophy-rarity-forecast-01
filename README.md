@@ -1,50 +1,48 @@
-# gta6-trophy-rarity-forecast-01
+# gta6-trophy-rarity-forecast-01 — v2
+
+Forecast how many GTA VI players earn each trophy in week one.
+Competition: https://make.fun/bounty/gta6-trophy-rarity-forecast-01
 
 [![make.fun](https://make.fun/badge/gta6-trophy-rarity-forecast-01.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01)
 [![rank](https://make.fun/badge/gta6-trophy-rarity-forecast-01/Wahyukanzuro/gta6-trophy-rarity-forecast-01/rank.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01)
 [![reward](https://make.fun/badge/gta6-trophy-rarity-forecast-01/Wahyukanzuro/gta6-trophy-rarity-forecast-01/reward.svg)](https://make.fun/bounty/gta6-trophy-rarity-forecast-01)
 
-Forecast how many GTA VI players earn each trophy in week one.
-[Competition](https://make.fun/bounty/gta6-trophy-rarity-forecast-01)
+## Model (v2)
 
-## Entry
+Single-file Python 3.13 program (`main.py`), stdlib only, no network,
+deterministic. It reads every `*.in` case in `$MAKEFUN_INPUT_DIR` (else
+`/input`) and writes one `<id>.out` per case to `$MAKEFUN_OUTPUT_DIR`
+(else `/output`).
 
-`main.py` (Python 3.13, stdlib only) reads every `*.in` case from
-`$MAKEFUN_INPUT_DIR` (else `/input`) and writes `<id>.out` per case to
-`$MAKEFUN_OUTPUT_DIR` (else `/output`):
+Per trophy, the median is the last read's logit shifted by **0.50x the
+per-trophy logit move across the most recent step** in the case's own
+history (the step is the latest read whose rates list or
+players-tracked count differs from its predecessor). The spread is a
+**random walk only, s = 0.5 * sqrt(d)** in logit space (d = horizon in
+days); the per-trophy spread term is disabled (`PER_TROPHY_C = 0.0`).
+When the history contains no step at all, the spread widens to
+**sqrt((0.5 * sqrt(d))^2 + 1.5^2)** to cover a refresh the case has
+not seen yet. Quantiles are rounded half-up to 4 decimals and clamped
+to [0.01, 99.99].
 
-```json
-{"trophies": [{"id": 1, "q": [q05, q25, q50, q75, q95]}, ...]}
-```
+Worked example at the final horizon (d = 4.5208 days): Chapter 1
+("Paradise Lost") last read 11.98%, most-recent step +0.086 logit, so
+the median is **12.4422%** with quantiles
+[2.4126, 6.4904, 12.4422, 22.5366, 44.9576].
 
-Run it the way the grader does:
+v2 supersedes v1 (shift 0.75x, per-trophy spread): three refresh steps
+were measured on the live Exophase trajectory and the later steps are
+far smaller than the first, so the shift scale drops to 0.50 and the
+spread drops to random-walk only. The expected edge over the house
+baseline on the final case is small (about 0.005 in the central
+scenario) — this is a calibration refinement, not a blowout.
+
+## Run
 
 ```sh
 python3 -P -s main.py
 ```
 
-Deterministic, no network, no clock, no randomness. One file, no
-dependencies.
+## License
 
-## Model
-
-Per trophy, the median is the logit of its last read rate, shifted by
-**0.75x the trophy's logit move across the most recent refresh step**
-visible in the case history. The spread is the random-walk term
-`0.5*sqrt(d)` combined with half the absolute move:
-`s_i = sqrt(RW^2 + (0.5*|Δ_i|)^2)`. When the history contains no step, a
-wide refresh-aware spread `s = sqrt(RW^2 + 1.5^2)` is used for every trophy.
-
-Why: Exophase refreshes in lumps. The Nov 20 refresh (players 14,028 →
-36,080) moved rates systematically, not uniformly: early-story trophies
-rose hard (Chapter 1 +2.47 logit, earners x28) while rare trophies diluted
-toward zero (Δ ≈ −1.10). A symmetric spread cannot capture a directional
-move — only a median shift can. The 0.75 scale is the minimax-regret pick
-from final-horizon scenario expected values, not from a backtest (the
-backtest cannot rank median rules: every origin's history is a single
-pre-refresh plateau).
-
-Practice is not the selection criterion: the practice histories contain no
-step, so this model scores there by spread alone (~0.8 expected, vs the
-house baseline ~1.5). The final case's history will contain the Nov 20
-refresh, so the shift fires there.
+MIT — see [LICENSE](LICENSE).
